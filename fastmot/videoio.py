@@ -19,6 +19,7 @@ class Protocol(Enum):
     V4L2  = 3
     RTSP  = 4
     HTTP  = 5
+    RTMP  = 6
 
 
 class VideoIO:
@@ -67,8 +68,10 @@ class VideoIO:
         assert proc_fps > 0
         self.proc_fps = proc_fps
 
-        self.protocol = self._parse_uri(self.input_uri)
-        self.is_live = self.protocol != Protocol.IMAGE and self.protocol != Protocol.VIDEO
+        self.input_protocol = self._parse_uri(self.input_uri)
+        self.output_protocol = self._parse_uri(self.output_uri)
+        self.input_is_live = self.input_protocol != Protocol.IMAGE and self.input_protocol != Protocol.VIDEO
+        self.output_is_live = self.output_protocol != Protocol.IMAGE and self.output_protocol != Protocol.VIDEO
         if WITH_GSTREAMER:
             self.source = cv2.VideoCapture(self._gst_cap_pipeline(), cv2.CAP_GSTREAMER)
         else:
@@ -93,7 +96,9 @@ class VideoIO:
         LOGGER.info('%dx%d stream @ %d FPS', width, height, self.cap_fps)
 
         if self.output_uri is not None:
-            Path(self.output_uri).parent.mkdir(parents=True, exist_ok=True)
+            #TODO: How to determine as file path?
+            if (self.output_protocol == Protocol.VIDEO):
+                Path(self.output_uri).parent.mkdir(parents=True, exist_ok=True)
             output_fps = 1 / self.cap_dt
             if WITH_GSTREAMER:
                 self.writer = cv2.VideoWriter(self._gst_write_pipeline(), cv2.CAP_GSTREAMER, 0,
@@ -105,7 +110,7 @@ class VideoIO:
     @property
     def cap_dt(self):
         # limit capture interval at processing latency for live sources
-        return 1 / min(self.cap_fps, self.proc_fps) if self.is_live else 1 / self.cap_fps
+        return 1 / min(self.cap_fps, self.proc_fps) if self.input_is_live else 1 / self.cap_fps
 
     def start_capture(self):
         """Start capturing from file or device."""
@@ -155,7 +160,7 @@ class VideoIO:
 
     def _gst_cap_pipeline(self):
         gst_elements = str(subprocess.check_output('gst-inspect-1.0'))
-        if 'nvvidconv' in gst_elements and self.protocol != Protocol.V4L2:
+        if 'nvvidconv' in gst_elements and self.input_protocol != Protocol.V4L2:
             # format conversion for hardware decoder
             cvt_pipeline = (
                 'nvvidconv interpolation-method=5 ! '
@@ -171,7 +176,7 @@ class VideoIO:
                 % self.size
             )
 
-        if self.protocol == Protocol.IMAGE:
+        if self.input_protocol == Protocol.IMAGE:
             pipeline = (
                 'multifilesrc location=%s index=1 caps="image/%s,framerate=%d/1" ! decodebin ! '
                 % (
@@ -180,9 +185,9 @@ class VideoIO:
                     self.frame_rate
                 )
             )
-        elif self.protocol == Protocol.VIDEO:
+        elif self.input_protocol == Protocol.VIDEO:
             pipeline = 'filesrc location=%s ! decodebin ! ' % self.input_uri
-        elif self.protocol == Protocol.CSI:
+        elif self.input_protocol == Protocol.CSI:
             if 'nvarguscamerasrc' in gst_elements:
                 pipeline = (
                     'nvarguscamerasrc sensor_id=%s ! '
@@ -196,7 +201,7 @@ class VideoIO:
                 )
             else:
                 raise RuntimeError('GStreamer CSI plugin not found')
-        elif self.protocol == Protocol.V4L2:
+        elif self.input_protocol == Protocol.V4L2:
             if 'v4l2src' in gst_elements:
                 pipeline = (
                     'v4l2src device=%s ! '
@@ -210,31 +215,52 @@ class VideoIO:
                 )
             else:
                 raise RuntimeError('GStreamer V4L2 plugin not found')
-        elif self.protocol == Protocol.RTSP:
+        elif self.input_protocol == Protocol.RTSP:
             pipeline = (
                 'rtspsrc location=%s latency=0 ! '
                 'capsfilter caps=application/x-rtp,media=video ! decodebin ! ' % self.input_uri
             )
-        elif self.protocol == Protocol.HTTP:
-            pipeline = 'souphttpsrc location=%s is-live=true ! decodebin ! ' % self.input_uri
+        elif self.input_protocol == Protocol.HTTP:
+            #HLS need dedicated plugin.
+            #https://stackoverflow.com/questions/31952067/is-there-a-way-of-detecting-the-end-of-an-hls-stream-with-javascript 
+            #TODO: How about MPEG-DASH?
+            pipeline = 'souphttpsrc location=%s %s ! hlsdemux ! decodebin ! ' % (self.input_uri, 'is-live=true' if self.input_is_live else '')
+        print("GSTREAMER INPUT: ", pipeline + cvt_pipeline)
         return pipeline + cvt_pipeline
 
     def _gst_write_pipeline(self):
         gst_elements = str(subprocess.check_output('gst-inspect-1.0'))
+   
         # use hardware encoder if found
-        if 'omxh264enc' in gst_elements:
-            h264_encoder = 'omxh264enc preset-level=2'
+        if 'nvv4l2h264enc' in gst_elements:
+            h264_encoder = 'nvvidconv ! nvv4l2h264enc ! h264parse'
+        # OMX is depreceated in recent Jetson
+        elif 'omxh264enc' in gst_elements:
+            h264_encoder = 'appsrc ! autovideoconvert ! omxh264enc preset-level=2'
         elif 'x264enc' in gst_elements:
-            h264_encoder = 'x264enc pass=4'
+            h264_encoder = 'appsrc ! autovideoconvert ! x264enc pass=4'
         else:
             raise RuntimeError('GStreamer H.264 encoder not found')
-        pipeline = (
-            'appsrc ! autovideoconvert ! %s ! qtmux ! filesink location=%s '
-            % (
-                h264_encoder,
-                self.output_uri
+
+        #TODO: Same support as input stream?
+        if self.output_protocol == Protocol.RTMP:
+            pipeline = (
+                '%s ! flvmux ! rtmpsink sync=true async=true location="%s%s"'
+                % (
+                    h264_encoder,
+                    self.output_uri,
+                    ' live=true' if self.output_is_live else ''
+                )
             )
-        )
+        else:
+            pipeline = (                   
+                '%s ! qtmux ! filesink location=%s '
+                % (
+                    h264_encoder,
+                    self.output_uri
+                )
+            )
+        print("GSTREAMER OUTPUT: ", pipeline)
         return pipeline
 
     def _capture_frames(self):
@@ -246,7 +272,7 @@ class VideoIO:
                     self.cond.notify()
                     break
                 # keep unprocessed frames in the buffer for file
-                if not self.is_live:
+                if not self.input_is_live:
                     while (len(self.frame_queue) == self.buffer_size and
                            not self.exit_event.is_set()):
                         self.cond.wait()
@@ -260,7 +286,9 @@ class VideoIO:
             protocol = Protocol.CSI
         elif result.scheme == 'rtsp':
             protocol = Protocol.RTSP
-        elif result.scheme == 'http':
+        elif result.scheme == 'rtmp':
+            protocol = Protocol.RTMP
+        elif (result.scheme == 'http' or result.scheme == 'https'):
             protocol = Protocol.HTTP
         else:
             if '/dev/video' in result.path:
