@@ -30,7 +30,9 @@ fi
 sudo apt-get update
 sudo apt-get install -y python3-pip libhdf5-serial-dev hdf5-tools libcanberra-gtk-module
 sudo -H pip3 install numpy
+echo "If you have error here, remove the symbolic link manually: sudo rm /usr/include/xlocale.h"
 sudo ln -s /usr/include/locale.h /usr/include/xlocale.h
+echo "If you have error here, install TF manually (replace with your jetpack version): sudo pip3 install --pre --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v46 \"tensorflow<2\""
 sudo -H pip3 install --no-cache-dir --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v$JP_VERSION tensorflow==$TF_VERSION+nv$NV_VERSION
 
 # SciPy
