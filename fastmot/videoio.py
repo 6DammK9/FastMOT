@@ -178,6 +178,7 @@ class VideoIO:
         gst_elements = str(subprocess.check_output('gst-inspect-1.0'))
         if 'nvvidconv' in gst_elements and self.input_protocol != Protocol.V4L2:
             # format conversion for hardware decoder
+            # Note: detector accepts BGR only.
             cvt_pipeline = (
                 'nvvidconv interpolation-method=5 ! videoconvert ! '
                 'video/x-raw, width=%d, height=%d, format=BGR ! ' #I420 / BGRx
@@ -249,10 +250,11 @@ class VideoIO:
         gst_elements = str(subprocess.check_output('gst-inspect-1.0'))
    
         # use hardware encoder if found
+        # Note: RTMP output accepts I420 only.
         if 'nvv4l2h264enc' in gst_elements:
             #nvcompositor ! 
             #h264_encoder = 'appsrc ! nvvidconv ! nvv4l2h264enc ! h264parse'             
-            h264_encoder = 'appsrc ! queue ! videoconvert ! video/x-raw,format=BGR ! nvvidconv ! nvv4l2h264enc ! h264parse ! queue' #autovideoconvert ! nvv4l2h264enc ! 
+            h264_encoder = 'appsrc ! queue ! videoconvert ! video/x-raw,format=I420 ! nvvidconv ! nvv4l2h264enc ! h264parse ! queue' #autovideoconvert ! nvv4l2h264enc ! 
         # OMX is depreceated in recent Jetson
         elif 'omxh264enc' in gst_elements:
             h264_encoder = 'appsrc ! autovideoconvert ! omxh264enc preset-level=2'

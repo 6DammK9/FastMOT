@@ -288,6 +288,7 @@ class YOLODetector(Detector):
         return detections
 
     def _preprocess(self, frame):
+        #I420: ValueError: operands could not be broadcast together with shapes (3,) (2,)
         zoom = np.roll(self.inp_handle.shape, -1) / frame.shape
         with self.backend.stream:
             frame_dev = cp.asarray(frame)
