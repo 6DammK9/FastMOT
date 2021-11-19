@@ -73,6 +73,7 @@ class VideoIO:
         self.input_is_live = self.input_protocol != Protocol.IMAGE and self.input_protocol != Protocol.VIDEO
         self.output_is_live = self.output_protocol != Protocol.IMAGE and self.output_protocol != Protocol.VIDEO
         # TODO: https://blog.csdn.net/weixin_41099962/article/details/103097384
+        # TODO: https://forums.developer.nvidia.com/t/opencv-video-writer-to-gstreamer-appsrc/115567/20
         #print(76)
         if WITH_GSTREAMER:
             print("TODO: cv2.VideoCapture()")
@@ -120,7 +121,7 @@ class VideoIO:
         return 1 / min(self.cap_fps, self.proc_fps) if self.input_is_live else 1 / self.cap_fps
 
     def start_capture(self):
-        print("start_capture()")
+        #print("start_capture()")
         """Start capturing from file or device."""
         if not self.source.isOpened():
             self.source.open(self._gst_cap_pipeline(), cv2.CAP_GSTREAMER)
@@ -160,7 +161,7 @@ class VideoIO:
         return frame
 
     def write(self, frame):
-        print("write()")
+        #print("write()")
         """Writes the next video frame."""
         assert hasattr(self, 'writer')
         self.writer.write(frame)
@@ -178,9 +179,9 @@ class VideoIO:
         if 'nvvidconv' in gst_elements and self.input_protocol != Protocol.V4L2:
             # format conversion for hardware decoder
             cvt_pipeline = (
-                'nvvidconv interpolation-method=5 ! '
-                'video/x-raw, width=%d, height=%d, format=I420 ! ' #BGRx
-                'videoconvert ! appsink sync=false'
+                'nvvidconv interpolation-method=5 ! videoconvert ! '
+                'video/x-raw, width=%d, height=%d, format=BGR ! ' #I420 / BGRx
+                'appsink sync=false' # sync=false
                 % self.size
             )
         else:
@@ -240,7 +241,7 @@ class VideoIO:
             #https://stackoverflow.com/questions/31952067/is-there-a-way-of-detecting-the-end-of-an-hls-stream-with-javascript 
             #TODO: How about MPEG-DASH?
             pipeline = 'souphttpsrc location=%s %s ! hlsdemux ! decodebin ! ' % (self.input_uri, 'is-live=true' if self.input_is_live else '')
-        print("TODO: Unable to query duration of stream")
+        print("TODO: Unable to query duration of stream, Internal data stream error")
         print("GSTREAMER INPUT: ", pipeline + cvt_pipeline)
         return pipeline + cvt_pipeline
 
@@ -250,8 +251,8 @@ class VideoIO:
         # use hardware encoder if found
         if 'nvv4l2h264enc' in gst_elements:
             #nvcompositor ! 
-            #h264_encoder = 'appsrc ! nvvidconv ! nvv4l2h264enc ! h264parse' 
-            h264_encoder = 'appsrc ! queue ! nvvidconv ! nvv4l2h264enc ! h264parse' #autovideoconvert ! nvv4l2h264enc ! 
+            #h264_encoder = 'appsrc ! nvvidconv ! nvv4l2h264enc ! h264parse'             
+            h264_encoder = 'appsrc ! queue ! videoconvert ! video/x-raw,format=BGR ! nvvidconv ! nvv4l2h264enc ! h264parse ! queue' #autovideoconvert ! nvv4l2h264enc ! 
         # OMX is depreceated in recent Jetson
         elif 'omxh264enc' in gst_elements:
             h264_encoder = 'appsrc ! autovideoconvert ! omxh264enc preset-level=2'
@@ -279,12 +280,13 @@ class VideoIO:
                 )
             )
         
-        print("TODO: Internal data stream error.")
+        #https://forums.developer.nvidia.com/t/python-opencv-rtmpsink-gstreamer-bug/112272
+        print("TODO: Error pushing buffer to GStreamer pipeline")
         print("GSTREAMER OUTPUT: ", pipeline)
         return pipeline
 
     def _capture_frames(self):
-        print("_capture_frames")
+        #print("_capture_frames")
         while not self.exit_event.is_set():
             ret, frame = self.source.read()
             with self.cond:

@@ -102,6 +102,7 @@ def main():
                     if cv2.waitKey(1) & 0xFF == 27:
                         break
                 if args.output_uri is not None:
+                    #print("app105:", frame)
                     stream.write(frame)
     finally:
         # clean up resources
