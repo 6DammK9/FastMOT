@@ -97,6 +97,7 @@ def main():
                                       f'{w:.6f},{h:.6f},-1,-1,-1\n')
 
                 if args.show:
+                    print("cv2.imshow()")
                     cv2.imshow('Video', frame)
                     if cv2.waitKey(1) & 0xFF == 27:
                         break

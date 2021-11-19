@@ -117,6 +117,7 @@ class SSDDetector(Detector):
         return detections
 
     def _preprocess(self, frame):
+        print("_preprocess(): tiling_region_sz = ", self.tiling_region_sz)
         frame = cv2.resize(frame, self.tiling_region_sz)
         self._normalize(frame, self.tiles, self.inp_handle)
 

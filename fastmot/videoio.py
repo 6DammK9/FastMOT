@@ -72,16 +72,21 @@ class VideoIO:
         self.output_protocol = self._parse_uri(self.output_uri)
         self.input_is_live = self.input_protocol != Protocol.IMAGE and self.input_protocol != Protocol.VIDEO
         self.output_is_live = self.output_protocol != Protocol.IMAGE and self.output_protocol != Protocol.VIDEO
+        # TODO: https://blog.csdn.net/weixin_41099962/article/details/103097384
+        #print(76)
         if WITH_GSTREAMER:
+            print("TODO: cv2.VideoCapture()")
             self.source = cv2.VideoCapture(self._gst_cap_pipeline(), cv2.CAP_GSTREAMER)
         else:
             self.source = cv2.VideoCapture(self.input_uri)
 
+        #print(82)
         self.frame_queue = deque([], maxlen=self.buffer_size)
         self.cond = threading.Condition()
         self.exit_event = threading.Event()
         self.cap_thread = threading.Thread(target=self._capture_frames)
 
+        #print(88)
         ret, frame = self.source.read()
         if not ret:
             raise RuntimeError('Unable to read video stream')
@@ -101,9 +106,11 @@ class VideoIO:
                 Path(self.output_uri).parent.mkdir(parents=True, exist_ok=True)
             output_fps = 1 / self.cap_dt
             if WITH_GSTREAMER:
+                print("cv2.VideoWriter(): output_fps = ", output_fps)
                 self.writer = cv2.VideoWriter(self._gst_write_pipeline(), cv2.CAP_GSTREAMER, 0,
                                               output_fps, self.size, True)
             else:
+                print("cv2.VideoWriter(): fourcc")
                 fourcc = cv2.VideoWriter_fourcc(*'avc1')
                 self.writer = cv2.VideoWriter(self.output_uri, fourcc, output_fps, self.size, True)
 
@@ -113,6 +120,7 @@ class VideoIO:
         return 1 / min(self.cap_fps, self.proc_fps) if self.input_is_live else 1 / self.cap_fps
 
     def start_capture(self):
+        print("start_capture()")
         """Start capturing from file or device."""
         if not self.source.isOpened():
             self.source.open(self._gst_cap_pipeline(), cv2.CAP_GSTREAMER)
@@ -120,6 +128,7 @@ class VideoIO:
             self.cap_thread.start()
 
     def stop_capture(self):
+        print("stop_capture()")
         """Stop capturing from file or device."""
         with self.cond:
             self.exit_event.set()
@@ -128,6 +137,7 @@ class VideoIO:
         self.cap_thread.join()
 
     def read(self):
+        #print("read()")
         """Reads the next video frame.
 
         Returns
@@ -136,22 +146,27 @@ class VideoIO:
             Returns None if there are no more frames.
         """
         with self.cond:
+            #print(140)
             while len(self.frame_queue) == 0 and not self.exit_event.is_set():
                 self.cond.wait()
             if len(self.frame_queue) == 0 and self.exit_event.is_set():
                 return None
+            #print(145)
             frame = self.frame_queue.popleft()
             self.cond.notify()
         if self.do_resize:
+            #print("cv2.resize: ", self.size)            
             frame = cv2.resize(frame, self.size)
         return frame
 
     def write(self, frame):
+        print("write()")
         """Writes the next video frame."""
         assert hasattr(self, 'writer')
         self.writer.write(frame)
 
     def release(self):
+        print("release()")
         """Cleans up input and output sources."""
         self.stop_capture()
         if hasattr(self, 'writer'):
@@ -164,14 +179,14 @@ class VideoIO:
             # format conversion for hardware decoder
             cvt_pipeline = (
                 'nvvidconv interpolation-method=5 ! '
-                'video/x-raw, width=%d, height=%d, format=BGRx !'
+                'video/x-raw, width=%d, height=%d, format=I420 ! ' #BGRx
                 'videoconvert ! appsink sync=false'
                 % self.size
             )
         else:
             cvt_pipeline = (
                 'videoscale ! '
-                'video/x-raw, width=%d, height=%d !'
+                'video/x-raw, width=%d, height=%d ! '
                 'videoconvert ! appsink sync=false'
                 % self.size
             )
@@ -225,6 +240,7 @@ class VideoIO:
             #https://stackoverflow.com/questions/31952067/is-there-a-way-of-detecting-the-end-of-an-hls-stream-with-javascript 
             #TODO: How about MPEG-DASH?
             pipeline = 'souphttpsrc location=%s %s ! hlsdemux ! decodebin ! ' % (self.input_uri, 'is-live=true' if self.input_is_live else '')
+        print("TODO: Unable to query duration of stream")
         print("GSTREAMER INPUT: ", pipeline + cvt_pipeline)
         return pipeline + cvt_pipeline
 
@@ -233,7 +249,9 @@ class VideoIO:
    
         # use hardware encoder if found
         if 'nvv4l2h264enc' in gst_elements:
-            h264_encoder = 'nvvidconv ! nvv4l2h264enc ! h264parse'
+            #nvcompositor ! 
+            #h264_encoder = 'appsrc ! nvvidconv ! nvv4l2h264enc ! h264parse' 
+            h264_encoder = 'appsrc ! queue ! nvvidconv ! nvv4l2h264enc ! h264parse' #autovideoconvert ! nvv4l2h264enc ! 
         # OMX is depreceated in recent Jetson
         elif 'omxh264enc' in gst_elements:
             h264_encoder = 'appsrc ! autovideoconvert ! omxh264enc preset-level=2'
@@ -245,7 +263,7 @@ class VideoIO:
         #TODO: Same support as input stream?
         if self.output_protocol == Protocol.RTMP:
             pipeline = (
-                '%s ! flvmux ! rtmpsink sync=true async=true location="%s%s"'
+                '%s ! flvmux ! rtmpsink sync=true async=true location="%s%s"' # sync=false
                 % (
                     h264_encoder,
                     self.output_uri,
@@ -260,10 +278,13 @@ class VideoIO:
                     self.output_uri
                 )
             )
+        
+        print("TODO: Internal data stream error.")
         print("GSTREAMER OUTPUT: ", pipeline)
         return pipeline
 
     def _capture_frames(self):
+        print("_capture_frames")
         while not self.exit_event.is_set():
             ret, frame = self.source.read()
             with self.cond:
