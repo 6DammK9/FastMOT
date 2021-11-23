@@ -9,6 +9,12 @@ import numpy as np
 import onnx
 from onnx import helper, TensorProto
 
+import logging
+
+# set up logging
+logging.basicConfig(format='%(asctime)s [%(levelname)8s] %(pathname)s.%(lineno)d: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', filename='site/yolo2onnx.log',)
+
+logger = logging.getLogger(__name__)
 
 MAX_BATCH_SIZE = 1
 
@@ -478,7 +484,7 @@ class GraphBuilderONNX(object):
             initializer=initializer
         )
         if verbose:
-            print(helper.printable_graph(self.graph_def))
+            logger.info(helper.printable_graph(self.graph_def))
         model_def = helper.make_model(self.graph_def,
                                       producer_name='NVIDIA TensorRT sample')
         return model_def
@@ -881,7 +887,7 @@ def main():
     model_name = Path(args.weights).stem
     output_file_path = Path(args.output_dir) / f'{model_name}.onnx'
 
-    print('Parsing DarkNet cfg file...')
+    logger.info('Parsing DarkNet cfg file...')
     parser = DarkNetParser()
     layer_configs = parser.parse_cfg_file(args.config)
     category_num = get_category_num(args.config)
@@ -900,7 +906,7 @@ def main():
     output_tensor_dims = OrderedDict(
         zip(output_tensor_names, output_tensor_shapes))
 
-    print('Building ONNX graph...')
+    logger.info('Building ONNX graph...')
     builder = GraphBuilderONNX(
         model_name, output_tensor_dims, MAX_BATCH_SIZE)
     yolo_model_def = builder.build_onnx_graph(
@@ -908,11 +914,11 @@ def main():
         weights_file_path=args.weights,
         verbose=True)
 
-    print('Checking ONNX model...')
+    logger.info('Checking ONNX model...')
     onnx.checker.check_model(yolo_model_def)
 
     onnx.save(yolo_model_def, output_file_path)
-    print(f'ONNX file saved to {output_file_path}')
+    logger.info(f'ONNX file saved to {output_file_path}')
 
 
 if __name__ == '__main__':

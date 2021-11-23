@@ -14,6 +14,8 @@ from .utils.rect import as_tlbr, aspect_ratio, to_tlbr, get_size, area
 from .utils.rect import enclosing, multi_crop, iom, diou_nms
 from .utils.numba import find_split_indices
 
+import logging
+logger = logging.getLogger(__name__)
 
 DET_DTYPE = np.dtype(
     [('tlbr', float, 4),
@@ -117,7 +119,7 @@ class SSDDetector(Detector):
         return detections
 
     def _preprocess(self, frame):
-        print("_preprocess(): tiling_region_sz = ", self.tiling_region_sz)
+        logger.debug("_preprocess(): tiling_region_sz = ", self.tiling_region_sz)
         frame = cv2.resize(frame, self.tiling_region_sz)
         self._normalize(frame, self.tiles, self.inp_handle)
 

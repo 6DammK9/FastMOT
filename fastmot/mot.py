@@ -12,7 +12,7 @@ from .utils.visualization import Visualizer
 from .utils.numba import find_split_indices
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DetectorType(Enum):
@@ -84,7 +84,7 @@ class MOT:
         if len(feature_extractor_cfgs) != len(class_ids):
             raise ValueError('Number of feature extractors must match length of class IDs')
 
-        LOGGER.info('Loading detector model...')
+        logger.info('Loading detector model...')
         if self.detector_type == DetectorType.SSD:
             self.detector = SSDDetector(self.size, self.class_ids, **vars(ssd_detector_cfg))
         elif self.detector_type == DetectorType.YOLO:
@@ -93,7 +93,7 @@ class MOT:
             self.detector = PublicDetector(self.size, self.class_ids, self.detector_frame_skip,
                                            **vars(public_detector_cfg))
 
-        LOGGER.info('Loading feature extractor models...')
+        logger.info('Loading feature extractor models...')
         self.extractors = [FeatureExtractor(**vars(cfg)) for cfg in feature_extractor_cfgs]
         self.tracker = MultiTracker(self.size, self.extractors[0].metric, **vars(tracker_cfg))
         self.visualizer = Visualizer(**vars(visualizer_cfg))
@@ -167,13 +167,13 @@ class MOT:
 
     @staticmethod
     def print_timing_info():
-        LOGGER.debug('=================Timing Stats=================')
-        LOGGER.debug(f"{'track time:':<37}{Profiler.get_avg_millis('track'):>6.3f} ms")
-        LOGGER.debug(f"{'preprocess time:':<37}{Profiler.get_avg_millis('preproc'):>6.3f} ms")
-        LOGGER.debug(f"{'detect/flow time:':<37}{Profiler.get_avg_millis('detect'):>6.3f} ms")
-        LOGGER.debug(f"{'feature extract/kalman filter time:':<37}"
+        logger.debug('=================Timing Stats=================')
+        logger.debug(f"{'track time:':<37}{Profiler.get_avg_millis('track'):>6.3f} ms")
+        logger.debug(f"{'preprocess time:':<37}{Profiler.get_avg_millis('preproc'):>6.3f} ms")
+        logger.debug(f"{'detect/flow time:':<37}{Profiler.get_avg_millis('detect'):>6.3f} ms")
+        logger.debug(f"{'feature extract/kalman filter time:':<37}"
                      f"{Profiler.get_avg_millis('extract'):>6.3f} ms")
-        LOGGER.debug(f"{'association time:':<37}{Profiler.get_avg_millis('assoc'):>6.3f} ms")
+        logger.debug(f"{'association time:':<37}{Profiler.get_avg_millis('assoc'):>6.3f} ms")
 
     def _draw(self, frame, detections):
         visible_tracks = list(self.visible_tracks())

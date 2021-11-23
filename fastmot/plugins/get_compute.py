@@ -11,10 +11,11 @@ from Python without resorting to nvidia-smi or a compiled Python extension.
 
 import sys
 import ctypes
+import logging
 
+logger = logging.getLogger(__name__)
 
 CUDA_SUCCESS = 0
-
 
 def main():
     libnames = ('libcuda.so', 'libcuda.dylib', 'cuda.dll')
@@ -41,19 +42,19 @@ def main():
     result = cuda.cuInit(0)
     if result != CUDA_SUCCESS:
         cuda.cuGetErrorString(result, ctypes.byref(error_str))
-        print('cuInit failed with error code %d: %s' % (result, error_str.value.decode()))
+        logger.error('cuInit failed with error code %d: %s' % (result, error_str.value.decode()))
         return 1
 
     result = cuda.cuDeviceGetCount(ctypes.byref(n_gpus))
     if result != CUDA_SUCCESS:
         cuda.cuGetErrorString(result, ctypes.byref(error_str))
-        print('cuDeviceGetCount failed with error code %d: %s' % (result, error_str.value.decode()))
+        logger.error('cuDeviceGetCount failed with error code %d: %s' % (result, error_str.value.decode()))
         return 1
 
     for i in range(n_gpus.value):
         if cuda.cuDeviceComputeCapability(ctypes.byref(cc_major), ctypes.byref(cc_minor), device) == CUDA_SUCCESS:
             gpu_archs.add(str(cc_major.value) + str(cc_minor.value))
-    print(' '.join(gpu_archs))
+    logger.info(' '.join(gpu_archs))
 
     return 0
 

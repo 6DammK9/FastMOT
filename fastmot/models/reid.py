@@ -4,7 +4,7 @@ import tensorrt as trt
 
 
 EXPLICIT_BATCH = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ReID:
@@ -50,15 +50,15 @@ class ReID:
             trt.OnnxParser(network, trt_logger) as parser:
 
             builder.max_batch_size = batch_size
-            LOGGER.info('Building engine with batch size: %d', batch_size)
-            LOGGER.info('This may take a while...')
+            logger.info('Building engine with batch size: %d', batch_size)
+            logger.info('This may take a while...')
 
             # parse model file
             with open(cls.MODEL_PATH, 'rb') as model_file:
                 if not parser.parse(model_file.read()):
-                    LOGGER.critical('Failed to parse the ONNX file')
+                    logger.critical('Failed to parse the ONNX file')
                     for err in range(parser.num_errors):
-                        LOGGER.error(parser.get_error(err))
+                        logger.error(parser.get_error(err))
                     return None
 
             # reshape input to the right batch size
@@ -83,10 +83,10 @@ class ReID:
             # engine = builder.build_cuda_engine(network)
             engine = builder.build_engine(network, config)
             if engine is None:
-                LOGGER.critical('Failed to build engine')
+                logger.critical('Failed to build engine')
                 return None
 
-            LOGGER.info("Completed creating engine")
+            logger.info("Completed creating engine")
             with open(cls.ENGINE_PATH, 'wb') as engine_file:
                 engine_file.write(engine.serialize())
             return engine

@@ -11,6 +11,7 @@ import fastmot
 import fastmot.models
 from fastmot.utils import ConfigDecoder, Profiler
 
+from logging.handlers import RotatingFileHandler
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
@@ -44,7 +45,12 @@ def main():
         raise parser.error('argument -t/--txt: not allowed without argument -m/--mot')
 
     # set up logging
-    logging.basicConfig(format='%(asctime)s [%(levelname)8s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    LOG_PATH = 'site/fastmot.log' 
+    
+    log_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=8 * 1000 * 1000, backupCount=8)
+    
+    logging.basicConfig(format='%(asctime)s [%(levelname)8s] %(filename)s.%(lineno)d: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', handlers=[log_file_handler]) #, filename=LOG_PATH
+    
     logger = logging.getLogger(fastmot.__name__)
     if args.quiet:
         logger.setLevel(logging.WARNING)
@@ -96,13 +102,12 @@ def main():
                             txt.write(f'{mot.frame_count},{track.trk_id},{tl[0]:.6f},{tl[1]:.6f},'
                                       f'{w:.6f},{h:.6f},-1,-1,-1\n')
 
-                if args.show:
-                    print("cv2.imshow()")
+                if args.show:                   
                     cv2.imshow('Video', frame)
                     if cv2.waitKey(1) & 0xFF == 27:
                         break
                 if args.output_uri is not None:
-                    #print("app105:", frame)
+                    logger.debug("writing frame...")
                     stream.write(frame)
     finally:
         # clean up resources

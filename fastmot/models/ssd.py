@@ -3,7 +3,7 @@ import logging
 import tensorrt as trt
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SSD:
@@ -70,8 +70,8 @@ class SSD:
         with trt.Builder(trt_logger) as builder, builder.create_network() as network, trt.UffParser() as parser:
             builder.max_workspace_size = 1 << 30
             builder.max_batch_size = batch_size
-            LOGGER.info('Building engine with batch size: %d', batch_size)
-            LOGGER.info('This may take a while...')
+            logger.info('Building engine with batch size: %d', batch_size)
+            logger.info('This may take a while...')
 
             if builder.platform_has_fast_fp16:
                 builder.fp16_mode = True
@@ -87,10 +87,10 @@ class SSD:
             parser.parse_buffer(uff_model, network)
             engine = builder.build_cuda_engine(network)
             if engine is None:
-                LOGGER.critical('Failed to build engine')
+                logger.critical('Failed to build engine')
                 return None
 
-            LOGGER.info("Completed creating engine")
+            logger.info("Completed creating engine")
             with open(cls.ENGINE_PATH, 'wb') as engine_file:
                 engine_file.write(engine.serialize())
             return engine

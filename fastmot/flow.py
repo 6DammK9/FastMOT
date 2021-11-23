@@ -10,7 +10,7 @@ from .utils.rect import intersection, crop
 from .utils.numba import mask_area, transform
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Flow:
@@ -192,7 +192,7 @@ class Flow:
             self.bg_keypoints = np.empty((0, 2), np.float32)
             self.prev_frame_gray, self.frame_gray = self.frame_gray, self.prev_frame_gray
             self.prev_frame_small, self.frame_small = self.frame_small, self.prev_frame_small
-            LOGGER.warning('Camera motion estimation failed')
+            logger.warning('Camera motion estimation failed')
             return {}, None
         keypoints = np.float32([kp.pt for kp in keypoints])
         keypoints = self._unscale_pts(keypoints, self.bg_feat_scale_factor)
@@ -218,7 +218,7 @@ class Flow:
                                                            status, bg_begin, -1)
         if len(matched_bg_pts) < 4:
             self.bg_keypoints = np.empty((0, 2), np.float32)
-            LOGGER.warning('Camera motion estimation failed')
+            logger.warning('Camera motion estimation failed')
             return {}, None
         homography, inlier_mask = cv2.findHomography(prev_bg_pts, matched_bg_pts,
                                                      method=cv2.RANSAC,
@@ -228,7 +228,7 @@ class Flow:
                                                                       inlier_mask)
         if homography is None or len(self.bg_keypoints) < self.inlier_thresh:
             self.bg_keypoints = np.empty((0, 2), np.float32)
-            LOGGER.warning('Camera motion estimation failed')
+            logger.warning('Camera motion estimation failed')
             return {}, None
 
         # estimate target bounding boxes
