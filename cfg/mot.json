@@ -1,9 +1,17 @@
-{   
-    "resize_to": [1280, 720],
+{
+    "resize_to_bk": [1280, 720],
 
-    "stream_cfg": {
+    "stream_cfg_bk": {
         "resolution": [1920, 1080],
         "frame_rate": 30,
+        "buffer_size": 10
+    },
+
+    "resize_to": [320, 240],
+
+    "stream_cfg": {
+        "resolution": [1280, 720],
+        "frame_rate": 5,
         "buffer_size": 10
     },
 
@@ -33,12 +41,10 @@
             "max_area": 800000
         },
 
-        "feature_extractor_cfgs": [
-            {
-                "model": "OSNet025",
-                "batch_size": 16
-            }
-        ],
+        "feature_extractor_cfgs": [{
+            "model": "OSNet025",
+            "batch_size": 16
+        }],
 
         "tracker_cfg": {
             "max_age": 6,

@@ -8,9 +8,14 @@ import logging
 import cv2
 
 logger = logging.getLogger(__name__)
+# set up logging
+LOG_PATH_GSTREAMER_CAPTURE = 'site/gstreamer_capture.log' 
+LOG_PATH_GSTREAMER_WRITE = 'site/gstreamer_write.log' 
 WITH_GSTREAMER = True
 
-
+# https://docs.python.org/3/library/contextlib.html#contextlib.redirect_stdout
+# Will try to redirect cv2 output to logger.
+import os, contextlib
 class Protocol(Enum):
     IMAGE = 0
     VIDEO = 1
@@ -19,7 +24,7 @@ class Protocol(Enum):
     RTSP  = 4
     HTTP  = 5
     RTMP  = 6
-
+    MQTT  = 7
 
 class VideoIO:
     def __init__(self, size, input_uri,
@@ -27,7 +32,7 @@ class VideoIO:
                  resolution=(1920, 1080),
                  frame_rate=30,
                  buffer_size=10,
-                 proc_fps=3):
+                 proc_fps=30):
         """Class for video capturing and output saving.
         Encoding, decoding, and scaling can be accelerated using the GStreamer backend.
 
@@ -75,10 +80,13 @@ class VideoIO:
         # TODO: https://forums.developer.nvidia.com/t/opencv-video-writer-to-gstreamer-appsrc/115567/20
         # TODO: https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html
         logger.debug("cv2.VideoCapture(str, int)")
-        if WITH_GSTREAMER:            
-            self.source = cv2.VideoCapture(self._gst_cap_pipeline(), cv2.CAP_GSTREAMER)
-        else:
-            self.source = cv2.VideoCapture(self.input_uri)
+        with open(LOG_PATH_GSTREAMER_CAPTURE, 'a') as f:
+            with contextlib.redirect_stdout(f):
+                with contextlib.redirect_stderr(f):
+                    if WITH_GSTREAMER:            
+                        self.source = cv2.VideoCapture(self._gst_cap_pipeline(), cv2.CAP_GSTREAMER)
+                    else:
+                        self.source = cv2.VideoCapture(self.input_uri)
 
         logger.debug("deque()")
         self.frame_queue = deque([], maxlen=self.buffer_size)
@@ -105,14 +113,17 @@ class VideoIO:
             if (self.output_protocol == Protocol.VIDEO):
                 Path(self.output_uri).parent.mkdir(parents=True, exist_ok=True)
             output_fps = 1 / self.cap_dt
-            if WITH_GSTREAMER:
-                logger.debug("cv2.VideoWriter(): output_fps = %f", output_fps)
-                self.writer = cv2.VideoWriter(self._gst_write_pipeline(), cv2.CAP_GSTREAMER, 0,
-                                              output_fps, self.size, True)
-            else:
-                logger.debug("cv2.VideoWriter(): fourcc")
-                fourcc = cv2.VideoWriter_fourcc(*'avc1')
-                self.writer = cv2.VideoWriter(self.output_uri, fourcc, output_fps, self.size, True)
+            with open(LOG_PATH_GSTREAMER_WRITE, 'a') as f:
+                with contextlib.redirect_stdout(f):
+                    with contextlib.redirect_stderr(f):
+                        if WITH_GSTREAMER:
+                            logger.debug("cv2.VideoWriter(): output_fps = %f", output_fps)
+                            self.writer = cv2.VideoWriter(self._gst_write_pipeline(), cv2.CAP_GSTREAMER, 0,
+                                                        output_fps, self.size, True)
+                        else:
+                            logger.debug("cv2.VideoWriter(): fourcc")
+                            fourcc = cv2.VideoWriter_fourcc(*'avc1')
+                            self.writer = cv2.VideoWriter(self.output_uri, fourcc, output_fps, self.size, True)
 
     @property
     def cap_dt(self):
@@ -178,9 +189,9 @@ class VideoIO:
             # Note: detector accepts BGR only.
             cvt_pipeline = (
                 'nvvidconv interpolation-method=5 ! videoconvert ! videorate ! '
-                'video/x-raw, width=%d, height=%d, framerate=3/1, format=BGR ! ' #I420 / BGRx #Limited to 3 FPS for AI
+                'video/x-raw, width=%d, height=%d, framerate=%d/1, format=BGR ! ' #I420 / BGRx #Limited to 3 FPS for AI
                 'appsink sync=false' # sync=false
-                % self.size
+                % (*self.size, self.frame_rate)
             )
         else:
             cvt_pipeline = (
@@ -247,7 +258,7 @@ class VideoIO:
         gst_elements = str(subprocess.check_output('gst-inspect-1.0'))
    
         # use hardware encoder if found
-        # Note: RTMP output accepts I420 only.
+        # Note: Our RTMP output accepts I420 only.
         if 'nvv4l2h264enc' in gst_elements:
             #nvcompositor ! 
             #h264_encoder = 'appsrc ! nvvidconv ! nvv4l2h264enc ! h264parse'             
@@ -260,7 +271,7 @@ class VideoIO:
         else:
             raise RuntimeError('GStreamer H.264 encoder not found')
 
-        #TODO: Same support as input stream?
+        #TODO: Same support as input stream? MQTT?
         if self.output_protocol == Protocol.RTMP:
             pipeline = (
                 '%s ! flvmux ! rtmpsink sync=false location="%s%s"' # sync=true async=true 
@@ -311,6 +322,8 @@ class VideoIO:
             protocol = Protocol.RTMP
         elif (result.scheme == 'http' or result.scheme == 'https'):
             protocol = Protocol.HTTP
+        elif result.scheme == 'mqtt':
+            protocol = Protocol.MQTT
         else:
             if '/dev/video' in result.path:
                 protocol = Protocol.V4L2
