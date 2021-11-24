@@ -6,8 +6,6 @@ from .models import get_label_name
 from .utils.distance import cdist, cosine
 from .utils.numba import apply_along_axis, normalize_vec
 from .utils.rect import get_center
-
-
 class ClusterFeature:
     def __init__(self, num_clusters, metric):
         self.num_clusters = num_clusters
@@ -223,3 +221,10 @@ class Track:
     def next_id():
         Track._count += 1
         return Track._count
+
+    def toJSONSerializable(self):
+        return {
+            "tlbr": self.tlbr.tolist() if isinstance(self.tlbr, np.ndarray) else self.tlbr,
+            "label": self.label, 
+            "trk_id": self.trk_id
+        }

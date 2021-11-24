@@ -6,12 +6,20 @@ import argparse
 import logging
 import json
 import cv2
+import base64
 
 import fastmot
 import fastmot.models
-from fastmot.utils import ConfigDecoder, Profiler
+from fastmot.utils import ConfigDecoder, Profiler, NpEncoder
 
 from logging.handlers import RotatingFileHandler
+
+# set up logging
+LOG_PATH = 'site/fastmot.log' 
+
+def on_trackevt(trk_evt):
+    json_object = json.dumps(trk_evt, cls=NpEncoder)
+    print(json_object)
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
@@ -43,9 +51,6 @@ def main():
     args = parser.parse_args()
     if args.txt is not None and not args.mot:
         raise parser.error('argument -t/--txt: not allowed without argument -m/--mot')
-
-    # set up logging
-    LOG_PATH = 'site/fastmot.log' 
     
     log_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=8 * 1000 * 1000, backupCount=8)
     
@@ -75,7 +80,7 @@ def main():
     txt = None
     if args.mot:
         draw = args.show or args.output_uri is not None
-        mot = fastmot.MOT(config.resize_to, **vars(config.mot_cfg), draw=draw)
+        mot = fastmot.MOT(config.resize_to, **vars(config.mot_cfg), draw=draw, on_trackevt=on_trackevt)
         mot.reset(stream.cap_dt)
     if args.txt is not None:
         Path(args.txt).parent.mkdir(parents=True, exist_ok=True)
@@ -106,6 +111,9 @@ def main():
                     cv2.imshow('Video', frame)
                     if cv2.waitKey(1) & 0xFF == 27:
                         break
+                
+
+
                 if args.output_uri is not None:
                     logger.debug("writing frame...")
                     stream.write(frame)

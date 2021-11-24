@@ -32,7 +32,8 @@ class MOT:
                  feature_extractor_cfgs=None,
                  tracker_cfg=None,
                  visualizer_cfg=None,
-                 draw=False):
+                 draw=False,
+                 on_trackevt=None):
         """Top level module that integrates detection, feature extraction,
         and tracking together.
 
@@ -93,9 +94,12 @@ class MOT:
             self.detector = PublicDetector(self.size, self.class_ids, self.detector_frame_skip,
                                            **vars(public_detector_cfg))
 
+        # Pass event from app.py
+        self.on_trackevt = on_trackevt
+
         logger.info('Loading feature extractor models...')
         self.extractors = [FeatureExtractor(**vars(cfg)) for cfg in feature_extractor_cfgs]
-        self.tracker = MultiTracker(self.size, self.extractors[0].metric, **vars(tracker_cfg))
+        self.tracker = MultiTracker(self.size, self.extractors[0].metric, **vars(tracker_cfg), on_trackevt=self.on_trackevt)
         self.visualizer = Visualizer(**vars(visualizer_cfg))
         self.frame_count = 0
 

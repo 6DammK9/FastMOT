@@ -11,10 +11,7 @@ from .utils.distance import Metric, cdist, iou_dist
 from .utils.matching import linear_assignment, greedy_match, fuse_motion, gate_cost
 from .utils.rect import as_tlbr, to_tlbr, ios, bbox_ious, find_occluded
 
-
 logger = logging.getLogger(__name__)
-
-
 class MultiTracker:
     def __init__(self, size, metric,
                  max_age=6,
@@ -29,7 +26,9 @@ class MultiTracker:
                  confirm_hits=1,
                  history_size=50,
                  kalman_filter_cfg=None,
-                 flow_cfg=None):
+                 flow_cfg=None,
+                 on_trackevt=None,
+                 ):
         """Class that uses KLT and Kalman filter to track multiple objects and
         associates detections to tracklets based on motion and appearance.
 
@@ -66,6 +65,7 @@ class MultiTracker:
             Kalman Filter configuration.
         flow_cfg : SimpleNamespace, optional
             Flow configuration.
+        on_trackevt : Event handler. Pass event for further action.
         """
         self.size = size
         self.metric = Metric[metric.upper()]
@@ -106,6 +106,19 @@ class MultiTracker:
         self.klt_bboxes = {}
         self.homography = None
 
+        # pass event from mot.py
+        self.on_trackevt = on_trackevt 
+
+    def cb_evt(self, evt_payload, log_level, log_payload):
+        # Internal logging
+        try:
+            logger[log_level](log_payload)
+        except:
+            pass
+        # Pass event
+        if callable(self.on_trackevt):
+            self.on_trackevt(evt_payload)
+
     def reset(self, dt):
         """Reset the tracker for new input context.
 
@@ -134,7 +147,8 @@ class MultiTracker:
             state = self.kf.create(det.tlbr)
             new_trk = Track(0, det.tlbr, state, det.label, self.confirm_hits)
             self.tracks[new_trk.trk_id] = new_trk
-            logger.debug(f"{'Detected:':<14}{new_trk}")
+            #logger.debug(f"{'Detected:':<14}{new_trk}")
+            self.cb_evt({'detected': new_trk.toJSONSerializable()}, 'debug', f"{'Detected:':<14}{new_trk}")
 
     def track(self, frame):
         """Convenience function that combines `compute_flow` and `apply_kalman`.
@@ -179,7 +193,8 @@ class MultiTracker:
             track.update(next_tlbr, (mean, cov))
             if ios(next_tlbr, self.frame_rect) < 0.5:
                 if track.confirmed:
-                    logger.info(f"{'Out:':<14}{track}")
+                    #logger.info(f"{'Out:':<14}{track}")
+                    self.cb_evt({'out': track.toJSONSerializable()}, 'info', f"{'Out:':<14}{track}")
                 self._mark_lost(trk_id)
 
     def update(self, frame_id, detections, embeddings):
@@ -250,7 +265,8 @@ class MultiTracker:
         for trk_id, det_id in reid_matches:
             track = self.hist_tracks.pop(trk_id)
             det = detections[det_id]
-            logger.info(f"{'Reidentified:':<14}{track}")
+            #logger.info(f"{'Reidentified:':<14}{track}")
+            self.cb_evt({'reidentified': track.toJSONSerializable()}, 'info', f"{'Reidentified:':<14}{track}")
             state = self.kf.create(det.tlbr)
             track.reinstate(frame_id, det.tlbr, state, embeddings[det_id])
             self.tracks[trk_id] = track
@@ -263,11 +279,13 @@ class MultiTracker:
             next_tlbr = as_tlbr(mean[:4])
             is_valid = not occluded_det_mask[det_id]
             if track.hits == self.confirm_hits - 1:
-                logger.info(f"{'Found:':<14}{track}")
+                #logger.info(f"{'Found:':<14}{track}")
+                self.cb_evt({'found': track.toJSONSerializable()}, 'info', f"{'Found:':<14}{track}")
             if ios(next_tlbr, self.frame_rect) < 0.5:
                 is_valid = False
                 if track.confirmed:
-                    logger.info(f"{'Out:':<14}{track}")
+                    #logger.info(f"{'Out:':<14}{track}")
+                    self.cb_evt({'out': track.toJSONSerializable()}, 'info', f"{'Out:':<14}{track}")
                 self._mark_lost(trk_id)
             track.add_detection(frame_id, next_tlbr, (mean, cov), embeddings[det_id], is_valid)
 
@@ -276,11 +294,13 @@ class MultiTracker:
             track = self.tracks[trk_id]
             track.mark_missed()
             if not track.confirmed:
-                logger.debug(f"{'Unconfirmed:':<14}{track}")
+                #logger.debug(f"{'Unconfirmed:':<14}{track}")
+                self.cb_evt({'unconfirmed': track.toJSONSerializable()}, 'debug', f"{'Unconfirmed:':<14}{track}")
                 del self.tracks[trk_id]
                 continue
-            if track.age > self.max_age:
-                logger.info(f"{'Lost:':<14}{track}")
+            if track.age > self.max_age:                
+                #logger.info(f"{'Lost:':<14}{track}")
+                self.cb_evt({'lost': track.toJSONSerializable()}, 'info', f"{'Lost:':<14}{track}")
                 self._mark_lost(trk_id)
 
         u_det_ids = itertools.chain(invalid_u_det_ids, reid_u_det_ids)
@@ -290,7 +310,8 @@ class MultiTracker:
             state = self.kf.create(det.tlbr)
             new_trk = Track(frame_id, det.tlbr, state, det.label, self.confirm_hits)
             self.tracks[new_trk.trk_id] = new_trk
-            logger.debug(f"{'Detected:':<14}{new_trk}")
+            #logger.debug(f"{'Detected:':<14}{new_trk}")
+            self.cb_evt({'detected': new_trk.toJSONSerializable()}, 'debug', f"{'Detected:':<14}{new_trk}")
 
     def _mark_lost(self, trk_id):
         track = self.tracks.pop(trk_id)
@@ -388,12 +409,14 @@ class MultiTracker:
             m_trk_id, det_id = m_inactive[col], det_ids[col]
             t_u_active, t_m_inactive = self.tracks[u_trk_id], self.tracks[m_trk_id]
             if t_m_inactive.end_frame < t_u_active.start_frame:
-                logger.debug(f"{'Merged:':<14}{u_trk_id} -> {m_trk_id}")
+                #logger.debug(f"{'Merged:':<14}{u_trk_id} -> {m_trk_id}")
+                self.cb_evt({'merged': [u_trk_id.toJSONSerializable(), m_trk_id.toJSONSerializable()]}, 'debug', f"{'Merged:':<14}{u_trk_id} -> {m_trk_id}")
                 t_m_inactive.merge_continuation(t_u_active)
                 u_trk_ids.remove(u_trk_id)
                 del self.tracks[u_trk_id]
             else:
-                logger.debug(f"{'Duplicate:':<14}{m_trk_id} -> {u_trk_id}")
+                #logger.debug(f"{'Duplicate:':<14}{m_trk_id} -> {u_trk_id}")
+                self.cb_evt({'duplicate': [m_trk_id.toJSONSerializable(), u_trk_id.toJSONSerializable()]}, 'debug', f"{'Duplicate:':<14}{m_trk_id} -> {u_trk_id}")
                 u_trk_ids.remove(u_trk_id)
                 u_trk_ids.add(m_trk_id)
                 matches.remove((m_trk_id, det_id))
@@ -418,5 +441,6 @@ class MultiTracker:
             else:
                 dup_ids.add(trk_id1)
         for trk_id in dup_ids:
-            logger.debug(f"{'Duplicate:':<14}{self.tracks[trk_id]}")
+            #logger.debug(f"{'Duplicate:':<14}{self.tracks[trk_id]}")
+            self.cb_evt({'duplicate': [trk_id.toJSONSerializable(), trk_id.toJSONSerializable()]}, 'debug', f"{'Duplicate:':<14}{self.tracks[trk_id]}")
             del self.tracks[trk_id]
