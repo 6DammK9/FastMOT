@@ -1,3 +1,33 @@
+# Fork message
+- I only write message in the top session. Anything below will be same as offical original repo.
+- I may create Push Request when I'm confident enough, however I expect it is incompatible.
+
+## Change log
+- v1: Initial version. Development in progress underly an external task.
+
+## Objective of this fork
+- Instead of academic challenge, it is focused on practical use.
+- It accepts realtime HLS video stream, detect moving objects (human / licence plate etc.), and pass detection results to MQTT or RTSP video stream.
+- It is developed in a Nvidia Jeston Nano 2GB. Currently it is 100% occupied for all CPU / GPU core / NVENC / NVDECs. It needs active cooling otherwise it hits 95C.
+- Since the FPS in output video stream is too low (has trouble to be shown in VLC), it would be sent via MQTT by frames.
+
+## Major changes
+- Installation info (more `echo`)
+- Extending functionality for `--input-uri` and `--output-uri`
+- Troubleshooting for `cv2.CAP_GSTREAMER` (the CMD is a lot longer)
+- Logging module revamp / event handlers (as callbacks) and MQTT module
+- Video frame extraction
+- `mkdir sites` to store internal logs / docuements etc.
+
+## Environment implementation
+- HLS stream is encoded as `I420`. However AI modules accepts `BGR` only.
+- RTMP output stream is also encoded as `I420`. Frame extraction will be done in `BGR`
+- Tensorflow, OpenCV with CUDA enabled is manually installed
+- CLI only. Hardward installed in remote site.
+- Additional OS tools: `jtop`, `iftop`, `rtmpdump`
+
+## Author
+- 6DammK9@gmail.com
 # FastMOT
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2FGeekAlexis%2FFastMOT&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![DOI](https://zenodo.org/badge/237143671.svg)](https://zenodo.org/badge/latestdoi/237143671)
 
