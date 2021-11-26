@@ -15,16 +15,14 @@ from fastmot.utils import ConfigDecoder, Profiler
 
 from logging.handlers import RotatingFileHandler
 
-import mqtt
+#import mqtt
 
 # set up logging
 LOG_PATH = 'site/fastmot.log' 
 
-mqtt_client = None
-
-def on_trackevt(trk_evt):
+def on_trackevt(trk_evt, mqtt_client=None):
     json_object = json.dumps(trk_evt, cls=NumpyEncoder)
-    if on_trackevt is not None and callable(mqtt_client.myCallback):
+    if mqtt_client is not None and callable(mqtt_client.myCallback):
         mqtt_client.myCallback(json_object)
     else: 
         print(json_object)
@@ -77,8 +75,8 @@ def main():
         config = json.load(cfg_file, cls=ConfigDecoder, object_hook=lambda d: SimpleNamespace(**d))
 
     # load mqtt client if enabled
-    if config.mqtt_cfg is not None:
-        mqtt_client = mqtt.mqttClient(**vars(config.mqtt_cfg))
+    #if config.mqtt_cfg is not None:
+    #    mqtt_client = mqtt.mqttClient(**vars(config.mqtt_cfg))
 
     # load labels if given
     if args.labels is not None:

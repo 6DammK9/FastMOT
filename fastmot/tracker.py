@@ -410,13 +410,13 @@ class MultiTracker:
             t_u_active, t_m_inactive = self.tracks[u_trk_id], self.tracks[m_trk_id]
             if t_m_inactive.end_frame < t_u_active.start_frame:
                 #logger.debug(f"{'Merged:':<14}{u_trk_id} -> {m_trk_id}")
-                self.cb_evt({'merged': [u_trk_id.toJSONSerializable(), m_trk_id.toJSONSerializable()]}, 'debug', f"{'Merged:':<14}{u_trk_id} -> {m_trk_id}")
+                self.cb_evt({'merged': [u_trk_id, m_trk_id]}, 'debug', f"{'Merged:':<14}{u_trk_id} -> {m_trk_id}")
                 t_m_inactive.merge_continuation(t_u_active)
                 u_trk_ids.remove(u_trk_id)
                 del self.tracks[u_trk_id]
             else:
                 #logger.debug(f"{'Duplicate:':<14}{m_trk_id} -> {u_trk_id}")
-                self.cb_evt({'duplicate': [m_trk_id.toJSONSerializable(), u_trk_id.toJSONSerializable()]}, 'debug', f"{'Duplicate:':<14}{m_trk_id} -> {u_trk_id}")
+                self.cb_evt({'duplicate': [m_trk_id, u_trk_id]}, 'debug', f"{'Duplicate:':<14}{m_trk_id} -> {u_trk_id}")
                 u_trk_ids.remove(u_trk_id)
                 u_trk_ids.add(m_trk_id)
                 matches.remove((m_trk_id, det_id))
@@ -442,5 +442,5 @@ class MultiTracker:
                 dup_ids.add(trk_id1)
         for trk_id in dup_ids:
             #logger.debug(f"{'Duplicate:':<14}{self.tracks[trk_id]}")
-            self.cb_evt({'duplicate': [trk_id.toJSONSerializable(), trk_id.toJSONSerializable()]}, 'debug', f"{'Duplicate:':<14}{self.tracks[trk_id]}")
+            self.cb_evt({'duplicate': [trk_id, trk_id]}, 'debug', f"{'Duplicate:':<14}{self.tracks[trk_id]}")
             del self.tracks[trk_id]

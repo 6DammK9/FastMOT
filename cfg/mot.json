@@ -140,13 +140,13 @@
     "mqtt_cfg": {
         "timer_lapse": 200,
         "MQTT_SOCKET": {
-            "mqtt_username": "watertank",
-            "mqtt_password": "HKAA_watertank",
-            "mqtt_broker": "broker.etag-hk.com",
+            "mqtt_username": "jetson",
+            "mqtt_password": "Etag1234",
+            "mqtt_broker": "brokertest.etag-hk.com",
             "ca_cert": "/home/pi/certs/MyRootCaCert.pem",
-            "client_name": "waterlevel_prod",
-            "alert_topic": "HKAA/TS/IOT/1-0/RAW/EVENT/WATERTANK/WATERLEVEL/PLC/L1_Z57/",
-            "sensor_topic": "HKAA/TS/IOT/1-0/RAW/EVENT/WATERTANK/WATERLEVEL/PLC/L1_Z57/"
+            "client_name": "jetson_dev",
+            "alert_topic": "TEST/JETSON/",
+            "sensor_topic": "TEST/JETSON/"
         }
     }
 }

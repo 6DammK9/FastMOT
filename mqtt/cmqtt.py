@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 class CMQTT (threading.Thread):
     def __init__(self, _queue, server, 
-        mqtt_username = 'watertank',
-        mqtt_password = 'HKAA_watertank',
-        mqtt_broker = 'broker.etag-hk.com',
-        ca_cert='/home/pi/certs/MyRootCaCert.pem',
-        client_name = 'waterlevel_prod',
-        alert_topic = "HKAA/TS/IOT/1-0/RAW/EVENT/WATERTANK/WATERLEVEL/PLC/L1_Z57/",
-        sensor_topic = "HKAA/TS/IOT/1-0/RAW/EVENT/WATERTANK/WATERLEVEL/PLC/L1_Z57/"
+        mqtt_username= "jetson",
+        mqtt_password= "Etag1234",
+        mqtt_broker= "brokertest.etag-hk.com",
+        ca_cert= "/home/pi/certs/MyRootCaCert.pem",
+        client_name= "jetson_dev",
+        alert_topic= "TEST/JETSON/",
+        sensor_topic="TEST/JETSON/"
     ):
         random.seed()
         threading.Thread.__init__(self)
@@ -56,6 +56,8 @@ class CMQTT (threading.Thread):
         #self.sensorTypeId = config.sensor_type_id
         #self.ifname = config.ifname
 
+        self.sensorTopic = sensor_topic
+
 
     def stop(self):
         self.continous_loop = False
@@ -85,9 +87,9 @@ class CMQTT (threading.Thread):
                     message_object = json.loads(item)
                     current_time = calendar.timegm(time.gmtime())
                     message_object['current_time'] = current_time
-                    message_topic = "test"
+                    #message_topic = "test"
                     l = json.dumps(message_object)
-                    self.client.publish(message_topic, l, 1)
+                    self.client.publish(self.sensorTopic, l, 1)
                 except Exception as e:
                     logger.error(e)
                     self.callback.stop()
