@@ -15,7 +15,9 @@ from fastmot.utils import ConfigDecoder, Profiler
 
 from logging.handlers import RotatingFileHandler
 
-#import mqtt
+from functools import partial
+
+from mqtt import mqttClient
 
 # set up logging
 LOG_PATH = 'site/fastmot.log' 
@@ -24,6 +26,7 @@ def on_trackevt(trk_evt, mqtt_client=None):
     json_object = json.dumps(trk_evt, cls=NumpyEncoder)
     if mqtt_client is not None and callable(mqtt_client.myCallback):
         mqtt_client.myCallback(json_object)
+        #print(json_object)
     else: 
         print(json_object)
 
@@ -75,8 +78,9 @@ def main():
         config = json.load(cfg_file, cls=ConfigDecoder, object_hook=lambda d: SimpleNamespace(**d))
 
     # load mqtt client if enabled
-    #if config.mqtt_cfg is not None:
-    #    mqtt_client = mqtt.mqttClient(**vars(config.mqtt_cfg))
+    if config.mqtt_cfg is not None:
+        mqtt_client = mqttClient(**vars(config.mqtt_cfg))
+        mqtt_client.start()
 
     # load labels if given
     if args.labels is not None:
@@ -90,7 +94,11 @@ def main():
     txt = None
     if args.mot:
         draw = args.show or args.output_uri is not None
-        mot = fastmot.MOT(config.resize_to, **vars(config.mot_cfg), draw=draw, on_trackevt=on_trackevt)
+        mot = fastmot.MOT(
+            config.resize_to, 
+            draw=draw, on_trackevt=partial(on_trackevt, mqtt_client=mqtt_client),
+            **vars(config.mot_cfg)
+        )
         mot.reset(stream.cap_dt)
     if args.txt is not None:
         Path(args.txt).parent.mkdir(parents=True, exist_ok=True)

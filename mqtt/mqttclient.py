@@ -1,6 +1,6 @@
 import threading
-from abstractServer import abstractServer
-from cmqtt import CMQTT
+from .abstract_server import abstractServer
+from .cmqtt import CMQTT
 import calendar
 import time
 import os
@@ -14,8 +14,8 @@ class mqttClient(abstractServer):
         timer_lapse=200,
         MQTT_SOCKET={}
     ):
-        super().__init__(timer_lapse)        
-        self.mqtt = CMQTT(self.queue, self, **MQTT_SOCKET)
+        super().__init__(timer_lapse)
+        self.mqtt = CMQTT(self.queue, self, **vars(MQTT_SOCKET))
         self.lock = threading.Lock()
         self.contin = True
         self.deviceconnection = None
@@ -31,11 +31,11 @@ class mqttClient(abstractServer):
         self.contin = False
         self.mqtt.stop()
         # self.deviceconnection.stop()
+        logger.info("stop program in 5 seconds...")
         time.sleep(5)
-        #logger.info("stop program")
-        #os._exit(0)
-        logger.info("restarting...")
-        self.start()
+        os._exit(0)
+        #logger.info("restarting...")
+        #self.start()
 
     def on_timeout(self):
         self.prepare_timeout()
@@ -53,7 +53,7 @@ class mqttClient(abstractServer):
             self.stop()
 
     def myCallback(self, sensor_data):
-        logger.debug('raw message: ' + str(sensor_data))
+        logger.info('raw message: ' + str(sensor_data))
         # for prop in sensor_data:
         #    logger.debug(prop + ' ' + str(sensor_data[prop]))
         # self.battery_alert(sensor_data['nodeId'], sensor_data['battery'])

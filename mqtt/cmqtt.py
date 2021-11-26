@@ -32,14 +32,15 @@ class CMQTT (threading.Thread):
         self.mqtt_broker = mqtt_broker
         self.user = mqtt_username
         self.passwd = mqtt_password
+
         #self.gatewayId = self.get_hw_address()
         #self.alertTopic = alert_topic+self.gatewayId
         #self.sensorTopic = sensor_topic+self.gatewayId
         self.ca_cert = ca_cert
         self.queue = _queue
         self.callback = server
-        client_name = client_name + self.gatewayId + \
-            "_" + str(random.randint(0, 999999)).zfill(6)
+        #self.gatewayId + \
+        client_name = client_name + "_" + str(random.randint(0, 999999)).zfill(6)
         logger.info("client_name: " + client_name)
         self.connectionFlag = False
         self.client = mqtt.Client(client_id=client_name, clean_session=True)
@@ -89,6 +90,8 @@ class CMQTT (threading.Thread):
                     message_object['current_time'] = current_time
                     #message_topic = "test"
                     l = json.dumps(message_object)
+                    #print("sensorTopic", self.sensorTopic)
+                    #print("sensorMessage", l)
                     self.client.publish(self.sensorTopic, l, 1)
                 except Exception as e:
                     logger.error(e)
