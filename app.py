@@ -12,6 +12,7 @@ from numpyencoder import NumpyEncoder
 import fastmot
 import fastmot.models
 from fastmot.utils import ConfigDecoder, Profiler
+from fastmot.videoio import VideoIO
 
 from logging.handlers import RotatingFileHandler
 
@@ -94,7 +95,8 @@ def main():
     if config.mqtt_cfg is not None:
         #args_merged = Namespace(**vars(args), **vars(config.mqtt_cfg))
 
-        mqtt_client = mqttClient(output_uri=args.output_uri, **vars(config.mqtt_cfg))
+        mqtt_output_uri = args.output_uri if VideoIO._parse_uri(args.output_uri or "http://localhost/") == 7 else None
+        mqtt_client = mqttClient(output_uri=mqtt_output_uri, **vars(config.mqtt_cfg))
         mqtt_client.start()
 
     # load labels if given
