@@ -14,6 +14,8 @@ from functools import reduce
 import random
 import logging
 
+import re
+
 logger = logging.getLogger(__name__)
 
 class CMQTT (threading.Thread):
@@ -24,12 +26,15 @@ class CMQTT (threading.Thread):
         ca_cert= "/home/pi/certs/MyRootCaCert.pem",
         client_name= "jetson_dev",
         alert_topic= "TEST/JETSON/",
-        sensor_topic="TEST/JETSON/"
+        sensor_topic="TEST/JETSON/",
+        output_uri=None #"mqtt://brokertest.etag-hk.com:1883"
     ):
         random.seed()
         threading.Thread.__init__(self)
+
+        self.mqtt_broker_primary = re.sub(r"\:[0-9]+", "", re.sub(r"mqtt\:\/\/", "", output_uri)) if output_uri else None
         self.daemon = True
-        self.mqtt_broker = mqtt_broker
+        self.mqtt_broker = self.mqtt_broker_primary or mqtt_broker
         self.user = mqtt_username
         self.passwd = mqtt_password
 

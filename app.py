@@ -16,6 +16,9 @@ from fastmot.utils import ConfigDecoder, Profiler
 from logging.handlers import RotatingFileHandler
 
 from functools import partial
+from argparse import Namespace
+from PIL import Image
+from io import BytesIO
 
 from mqtt import mqttClient
 
@@ -29,6 +32,16 @@ def on_trackevt(trk_evt, mqtt_client=None):
         #print(json_object)
     else: 
         print(json_object)
+
+#frame: np.ndarray from cv2
+#https://stackoverflow.com/questions/43310681/how-to-convert-python-numpy-array-to-base64-output
+def frame_to_img_b64(frame):
+    pil_img = Image.fromarray(frame)
+    buff = BytesIO()
+    pil_img.save(buff, format="PNG")
+    new_image_string = base64.b64encode(buff.getvalue()).decode("utf-8")
+    #print(new_image_string)
+    return new_image_string
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
@@ -79,7 +92,9 @@ def main():
 
     # load mqtt client if enabled
     if config.mqtt_cfg is not None:
-        mqtt_client = mqttClient(**vars(config.mqtt_cfg))
+        #args_merged = Namespace(**vars(args), **vars(config.mqtt_cfg))
+
+        mqtt_client = mqttClient(output_uri=args.output_uri, **vars(config.mqtt_cfg))
         mqtt_client.start()
 
     # load labels if given
@@ -129,12 +144,16 @@ def main():
                     cv2.imshow('Video', frame)
                     if cv2.waitKey(1) & 0xFF == 27:
                         break
-                
-
 
                 if args.output_uri is not None:
                     logger.debug("writing frame...")
                     stream.write(frame)
+                    try:
+                        img = frame_to_img_b64(frame)
+                        on_trackevt({'frame': len(img)}, mqtt_client=mqtt_client)
+                    except:
+                        pass
+                                      
     finally:
         # clean up resources
         if txt is not None:

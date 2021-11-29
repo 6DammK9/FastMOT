@@ -11,11 +11,13 @@ logger = logging.getLogger(__name__)
 class mqttClient(abstractServer):
 
     def __init__(self,   
+        output_uri=None,
         timer_lapse=200,
         MQTT_SOCKET={}
     ):
         super().__init__(timer_lapse)
-        self.mqtt = CMQTT(self.queue, self, **vars(MQTT_SOCKET))
+        self.output_uri = output_uri
+        self.mqtt = CMQTT(self.queue, self, output_uri=self.output_uri, **vars(MQTT_SOCKET))
         self.lock = threading.Lock()
         self.contin = True
         self.deviceconnection = None

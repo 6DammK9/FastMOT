@@ -256,13 +256,20 @@ class VideoIO:
 
     def _gst_write_pipeline(self):
         gst_elements = str(subprocess.check_output('gst-inspect-1.0'))
+
+        video_codec = 'RGBA'
+
+        if self.output_protocol == Protocol.RTMP:
+            video_codec = 'I420'
+        else:
+            video_codec = 'RGBA'
    
         # use hardware encoder if found
         # Note: Our RTMP output accepts I420 only.
         if 'nvv4l2h264enc' in gst_elements:
             #nvcompositor ! 
             #h264_encoder = 'appsrc ! nvvidconv ! nvv4l2h264enc ! h264parse'             
-            h264_encoder = 'appsrc ! queue ! videoconvert ! video/x-raw,format=I420 ! nvvidconv ! nvv4l2h264enc ! h264parse ! queue' #autovideoconvert ! nvv4l2h264enc ! 
+            h264_encoder = 'appsrc ! queue ! videoconvert ! video/x-raw,format=%s ! nvvidconv ! nvv4l2h264enc ! h264parse ! queue' % (video_codec) #autovideoconvert ! nvv4l2h264enc ! 
         # OMX is depreceated in recent Jetson
         elif 'omxh264enc' in gst_elements:
             h264_encoder = 'appsrc ! autovideoconvert ! omxh264enc preset-level=2'
@@ -279,6 +286,16 @@ class VideoIO:
                     h264_encoder,
                     self.output_uri,
                     ' live=true' if self.output_is_live else ''
+                )
+            )
+        elif self.output_protocol == Protocol.MQTT:
+            pipeline = (
+                #'%s ! fakesink sync=false' #name=sink 
+                '%s ! flvmux ! rtmpsink sync=false location="rtmp://video.etag-hk.com/intern/ch1 live=true"'
+                % (
+                    h264_encoder,
+                    #self.output_uri,                            #Will be carried by MQTT module
+                    #' live=true' if self.output_is_live else '' #Will be carried by MQTT module
                 )
             )
         else:
