@@ -116,7 +116,7 @@ class MultiTracker:
         except:
             pass
         # Pass event
-        if callable(self.on_trackevt):
+        if callable(self.on_trackevt) and log_level is not "debug":
             self.on_trackevt(evt_payload)
 
     def reset(self, dt):

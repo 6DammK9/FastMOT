@@ -99,9 +99,11 @@ class MOT:
 
         logger.info('Loading feature extractor models...')
         self.extractors = [FeatureExtractor(**vars(cfg)) for cfg in feature_extractor_cfgs]
-        self.tracker = MultiTracker(self.size, self.extractors[0].metric, **vars(tracker_cfg), on_trackevt=self.on_trackevt)
+        self.tracker = MultiTracker(self.size, self.extractors[0].metric, **vars(tracker_cfg), on_trackevt=self.on_tracker_evt)
         self.visualizer = Visualizer(**vars(visualizer_cfg))
         self.frame_count = 0
+
+        self.latest_drawn = None
 
     def visible_tracks(self):
         """Retrieve visible tracks from the tracker
@@ -168,6 +170,14 @@ class MOT:
         if self.draw:
             self._draw(frame, detections)
         self.frame_count += 1
+        self.latest_drawn = frame
+
+    def on_tracker_evt(self, evt_payload):
+        mot_payload = {
+            'track': evt_payload,
+            'frame': self.latest_drawn
+        }
+        self.on_trackevt(mot_payload)
 
     @staticmethod
     def print_timing_info():

@@ -20,6 +20,7 @@ from functools import partial
 from argparse import Namespace
 from PIL import Image
 from io import BytesIO
+import time
 
 from mqtt import mqttClient
 
@@ -27,7 +28,9 @@ from mqtt import mqttClient
 LOG_PATH = 'site/fastmot.log' 
 
 def on_trackevt(trk_evt, mqtt_client=None):
-    json_object = json.dumps(trk_evt, cls=NumpyEncoder)
+    json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder)
+    img = frame_to_img_b64(trk_evt['frame'])
+    print("saved: ", len(img))
     if mqtt_client is not None and callable(mqtt_client.myCallback):
         mqtt_client.myCallback(json_object)
         #print(json_object)
@@ -37,11 +40,13 @@ def on_trackevt(trk_evt, mqtt_client=None):
 #frame: np.ndarray from cv2
 #https://stackoverflow.com/questions/43310681/how-to-convert-python-numpy-array-to-base64-output
 def frame_to_img_b64(frame):
-    pil_img = Image.fromarray(frame)
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(frame)    
+    pil_img.save("site/jpg/%d.jpg" % (time.time()))
     buff = BytesIO()
-    pil_img.save(buff, format="PNG")
+    pil_img.save(buff, format='JPEG')
     new_image_string = base64.b64encode(buff.getvalue()).decode("utf-8")
-    #print(new_image_string)
+    #print("saved: ", len(new_image_string))
     return new_image_string
 
 def main():
@@ -150,11 +155,11 @@ def main():
                 if args.output_uri is not None:
                     logger.debug("writing frame...")
                     stream.write(frame)
-                    try:
-                        img = frame_to_img_b64(frame)
-                        on_trackevt({'frame': len(img)}, mqtt_client=mqtt_client)
-                    except:
-                        pass
+                    #try:
+                    #    img = frame_to_img_b64(frame)
+                    #    on_trackevt({'frame': len(img)}, mqtt_client=mqtt_client)
+                    #except:
+                    #    pass
                                       
     finally:
         # clean up resources
