@@ -9,8 +9,6 @@ sio = socketio.Client(logger=True, engineio_logger=True)
 
 primary_chanel = "live/fastmot"
 
-expected_url = "wss://webtest.etag-hk.com/taihang/api/socketio/?EIO=3&transport=websocket"
-
 #https://github.com/miguelgrinberg/python-socketio/blob/main/src/socketio/client.py
 #https://github.com/miguelgrinberg/python-engineio/blob/main/src/engineio/client.py
 #Why skip all the sub-directory?
