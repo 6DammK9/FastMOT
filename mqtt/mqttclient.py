@@ -7,7 +7,6 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
-
 class mqttClient(abstractServer):
 
     def __init__(self,   
@@ -33,9 +32,9 @@ class mqttClient(abstractServer):
         self.contin = False
         self.mqtt.stop()
         # self.deviceconnection.stop()
-        logger.info("stop program in 5 seconds...")
-        time.sleep(5)
-        os._exit(0)
+        #logger.info("stop program in 5 seconds...")
+        #time.sleep(5)
+        #os._exit(0)
         #logger.info("restarting...")
         #self.start()
 

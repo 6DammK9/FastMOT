@@ -18,7 +18,7 @@ class abstractServer(ABC):
         self.queue = Queue()
         self.timer_lapse = timer_lapse
         self.time_thread = threading.Timer(self.timer_lapse, self.on_timeout)
-        signal.signal(signal.SIGINT, self.handler)
+        #signal.signal(signal.SIGINT, self.handler)
 
     def put_msg(self, msg):
         # Multiple reading in single message
@@ -31,8 +31,8 @@ class abstractServer(ABC):
         n = msg
         self.queue.put(n)
 
-    def handler(self, signum, frame):
-        self.stop()
+    #def handler(self, signum, frame):
+    #    self.stop()
 
     def resetTimer(self, action):
         if (action == 'reset'):

@@ -21,6 +21,8 @@ from argparse import Namespace
 from PIL import Image
 from io import BytesIO
 import time
+import os
+import signal
 
 from mqtt import mqttClient
 
@@ -174,6 +176,32 @@ def main():
         logger.info('Average FPS: %d', avg_fps)
         mot.print_timing_info()
 
+    sio_client = None
+    signal.signal(signal.SIGINT, partial(on_sigint, app_print=logger.info, 
+        mqtt_client=mqtt_client, sio_client=sio_client,
+        txt=txt, stream=stream
+    ))
+
+# Too many threads running, impossible to stop without explictly set this procedure
+def on_sigint(app_print, mqtt_client, sio_client, txt, stream):
+    msg = "SIGINT: Received SIGINT. Stopping active clients"
+    app_print(msg)
+    print(msg)
+    a_fnc = [
+        mqtt_client.stop,
+        sio_client.stop,
+        txt.close,
+        stream.release,
+        cv2.destroyAllWindows
+    ]
+    for af in a_fnc:
+        if callable(af):
+            af()
+    msg = "SIGINT: Stop program in 5 seconds..."
+    app_print(msg)
+    print(msg)
+    time.sleep(5)
+    os._exit(0)
 
 if __name__ == '__main__':
     main()
