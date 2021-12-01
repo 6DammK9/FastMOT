@@ -1,4 +1,4 @@
-from .videoio import VideoIO
+from .videoio import VideoIO, Protocol
 from .mot import MOT
 from .feature_extractor import FeatureExtractor
 from .tracker import MultiTracker

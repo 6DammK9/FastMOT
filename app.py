@@ -12,7 +12,7 @@ from numpyencoder import NumpyEncoder
 import fastmot
 import fastmot.models
 from fastmot.utils import ConfigDecoder, Profiler
-from fastmot.videoio import VideoIO
+from fastmot.videoio import VideoIO, Protocol
 
 from logging.handlers import RotatingFileHandler
 
@@ -25,26 +25,45 @@ import os
 import signal
 
 from mqtt import mqttClient
+from feathersjssio import SIOClient
 
 # set up logging
 LOG_PATH = 'site/fastmot.log' 
 
-def on_trackevt(trk_evt, mqtt_client=None):
+def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
     json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder)
+
+    #Send with event 'found' only
+    if 'found' not in trk_evt['track']:
+        logger.debug(json_object)
+        return
+
     img = frame_to_img_b64(trk_evt['frame'])
-    print("saved: ", len(img))
-    if mqtt_client is not None and callable(mqtt_client.myCallback):
-        mqtt_client.myCallback(json_object)
+    
+    print("img: ", len(img))
+    json_fulltrk_evt = json.dumps({
+        'track': trk_evt['track'],
+        'img': img
+    }, cls=NumpyEncoder)
+    if mqtt_client is not None and callable(mqtt_client.on_trackevt):
+        print("mqtt")
+        mqtt_client.on_trackevt(json_object)
+        #print(json_object)
+    elif feathers_sio_client is not None and callable(feathers_sio_client.on_trackevt):
+        print("sio")
+        print(json_object)
+        feathers_sio_client.on_trackevt(json_fulltrk_evt)
         #print(json_object)
     else: 
-        print(json_object)
+        print("none")
+        logger.debug(json_object)
 
 #frame: np.ndarray from cv2
 #https://stackoverflow.com/questions/43310681/how-to-convert-python-numpy-array-to-base64-output
 def frame_to_img_b64(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(frame)    
-    pil_img.save("site/jpg/%d.jpg" % (time.time()))
+    #pil_img.save("site/jpg/%d.jpg" % (time.time()))
     buff = BytesIO()
     pil_img.save(buff, format='JPEG')
     new_image_string = base64.b64encode(buff.getvalue()).decode("utf-8")
@@ -98,13 +117,22 @@ def main():
     with open(args.config) as cfg_file:
         config = json.load(cfg_file, cls=ConfigDecoder, object_hook=lambda d: SimpleNamespace(**d))
 
+    output_protocol = VideoIO._parse_uri(args.output_uri or "http://localhost/")
+    mqtt_client = None
+    feathers_sio_client = None
+
     # load mqtt client if enabled
-    if config.mqtt_cfg is not None:
+    if config.mqtt_cfg is not None and output_protocol == Protocol.MQTT:
         #args_merged = Namespace(**vars(args), **vars(config.mqtt_cfg))
 
-        mqtt_output_uri = args.output_uri if VideoIO._parse_uri(args.output_uri or "http://localhost/") == 7 else None
-        mqtt_client = mqttClient(output_uri=mqtt_output_uri, **vars(config.mqtt_cfg))
+        mqtt_client = mqttClient(output_uri=args.output_uri, **vars(config.mqtt_cfg))
         mqtt_client.start()
+
+    # load (feathersjs) socketio client if enabled
+    if config.feathers_sio_cfg is not None and output_protocol == Protocol.WS:
+
+        feathers_sio_client = SIOClient(output_uri=args.output_uri, **vars(config.feathers_sio_cfg))
+        feathers_sio_client.start()
 
     # load labels if given
     if args.labels is not None:
@@ -120,7 +148,7 @@ def main():
         draw = args.show or args.output_uri is not None
         mot = fastmot.MOT(
             config.resize_to, 
-            draw=draw, on_trackevt=partial(on_trackevt, mqtt_client=mqtt_client),
+            draw=draw, on_trackevt=partial(on_trackevt, logger=logger, mqtt_client=mqtt_client, feathers_sio_client=feathers_sio_client),
             **vars(config.mot_cfg)
         )
         mot.reset(stream.cap_dt)
@@ -129,6 +157,11 @@ def main():
         txt = open(args.txt, 'w')
     if args.show:
         cv2.namedWindow('Video', cv2.WINDOW_AUTOSIZE)
+
+    signal.signal(signal.SIGINT, lambda x: on_sigint(app_print=logger, 
+        mqtt_client=mqtt_client, sio_client=feathers_sio_client,
+        txt=txt, stream=stream
+    ))
 
     logger.info('Starting video capture...')
     stream.start_capture()
@@ -176,16 +209,10 @@ def main():
         logger.info('Average FPS: %d', avg_fps)
         mot.print_timing_info()
 
-    sio_client = None
-    signal.signal(signal.SIGINT, partial(on_sigint, app_print=logger.info, 
-        mqtt_client=mqtt_client, sio_client=sio_client,
-        txt=txt, stream=stream
-    ))
-
 # Too many threads running, impossible to stop without explictly set this procedure
 def on_sigint(app_print, mqtt_client, sio_client, txt, stream):
     msg = "SIGINT: Received SIGINT. Stopping active clients"
-    app_print(msg)
+    app_print.info(msg)
     print(msg)
     a_fnc = [
         mqtt_client.stop,
@@ -198,7 +225,7 @@ def on_sigint(app_print, mqtt_client, sio_client, txt, stream):
         if callable(af):
             af()
     msg = "SIGINT: Stop program in 5 seconds..."
-    app_print(msg)
+    app_print.info(msg)
     print(msg)
     time.sleep(5)
     os._exit(0)

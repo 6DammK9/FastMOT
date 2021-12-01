@@ -25,6 +25,7 @@ class Protocol(Enum):
     HTTP  = 5
     RTMP  = 6
     MQTT  = 7
+    WS    = 8
 
 class VideoIO:
     def __init__(self, size, input_uri,
@@ -288,7 +289,7 @@ class VideoIO:
                     ' live=true' if self.output_is_live else ''
                 )
             )
-        elif self.output_protocol == Protocol.MQTT:
+        elif self.output_protocol == Protocol.MQTT or self.output_protocol == Protocol.WS:
             pipeline = (
                 #'%s ! fakesink sync=false' #name=sink 
                 '%s ! flvmux ! rtmpsink sync=false location="rtmp://video.etag-hk.com/intern/ch1 live=true"'
@@ -341,6 +342,8 @@ class VideoIO:
             protocol = Protocol.HTTP
         elif result.scheme == 'mqtt':
             protocol = Protocol.MQTT
+        elif (result.scheme == 'ws' or result.scheme == 'wss'):
+            protocol = Protocol.WS
         else:
             if '/dev/video' in result.path:
                 protocol = Protocol.V4L2

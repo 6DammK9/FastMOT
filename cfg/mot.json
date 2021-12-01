@@ -148,5 +148,11 @@
             "alert_topic": "TEST/JETSON/",
             "sensor_topic": "TEST/JETSON/"
         }
+    },
+    "feathers_sio_cfg": {
+        "FEATHERSJS_SOCKET": {
+            "logger": false,
+            "engineio_logger": false
+        }
     }
 }

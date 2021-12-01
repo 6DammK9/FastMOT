@@ -44,8 +44,8 @@ class mqttClient(abstractServer):
     def create_waterlevel_connection(self):
         try:
             # Start thread with callback
-            #self.deviceconnection = NCDEnterprise(client_config.NCD_SERIALPORT.SERIAL_PORT, client_config.NCD_SERIALPORT.BAUD_RATE, self.myCallback)
-            #self.deviceconnection = MiniModbusCallback("TCP", self.myCallback)
+            #self.deviceconnection = NCDEnterprise(client_config.NCD_SERIALPORT.SERIAL_PORT, client_config.NCD_SERIALPORT.BAUD_RATE, self.on_trackevt)
+            #self.deviceconnection = MiniModbusCallback("TCP", self.on_trackevt)
 
             #Currently device connection is done in somewhere else
             self.deviceconnection = None
@@ -53,8 +53,8 @@ class mqttClient(abstractServer):
             logger.error(e)
             self.stop()
 
-    def myCallback(self, sensor_data):
-        logger.info('raw message: ' + str(sensor_data))
+    def on_trackevt(self, sensor_data):
+        # logger.info('raw message: ' + str(sensor_data))
         # for prop in sensor_data:
         #    logger.debug(prop + ' ' + str(sensor_data[prop]))
         # self.battery_alert(sensor_data['nodeId'], sensor_data['battery'])
