@@ -110,6 +110,8 @@ class MultiTracker:
         self.on_trackevt = on_trackevt 
 
     def cb_evt(self, evt_payload, log_level, log_payload):
+        #logger.info("cb_evt()")
+
         # Internal logging
         try:
             logger[log_level](log_payload)

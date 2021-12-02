@@ -26,34 +26,39 @@ import signal
 
 from mqtt import mqttClient
 from feathersjssio import SIOClient
+#from traceback import print_exception
+from sys import stdout, stderr, exc_info
 
 # set up logging
 LOG_PATH = 'site/fastmot.log' 
 
 def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
+    #logger.info("on_trackevt()")
+    
     json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder)
 
     #Send with event 'found' only
     if 'found' not in trk_evt['track']:
-        logger.debug(json_object)
+        #logger.debug(json_object)
         return
 
     img = frame_to_img_b64(trk_evt['frame'])
     
-    print("img: ", len(img))
-    json_fulltrk_evt = json.dumps({
+    logger.info(json_object)
+    logger.info("img: %d" % len(img))
+    #json.dumps(
+    json_fulltrk_evt = {
         'track': trk_evt['track'],
         'img': img
-    }, cls=NumpyEncoder)
+    }
     if mqtt_client is not None and callable(mqtt_client.on_trackevt):
-        print("mqtt")
+        #print("mqtt")
         mqtt_client.on_trackevt(json_object)
         #print(json_object)
     elif feathers_sio_client is not None and callable(feathers_sio_client.on_trackevt):
-        print("sio")
-        print(json_object)
-        feathers_sio_client.on_trackevt(json_fulltrk_evt)
+        #print("sio")
         #print(json_object)
+        feathers_sio_client.on_trackevt(json_fulltrk_evt)
     else: 
         print("none")
         logger.debug(json_object)
@@ -121,18 +126,21 @@ def main():
     mqtt_client = None
     feathers_sio_client = None
 
-    # load mqtt client if enabled
-    if config.mqtt_cfg is not None and output_protocol == Protocol.MQTT:
-        #args_merged = Namespace(**vars(args), **vars(config.mqtt_cfg))
+    try:
+        # load mqtt client if enabled
+        if config.mqtt_cfg is not None and output_protocol == Protocol.MQTT:
+            #args_merged = Namespace(**vars(args), **vars(config.mqtt_cfg))
 
-        mqtt_client = mqttClient(output_uri=args.output_uri, **vars(config.mqtt_cfg))
-        mqtt_client.start()
+            mqtt_client = mqttClient(output_uri=args.output_uri, **vars(config.mqtt_cfg))
+            mqtt_client.start()
 
-    # load (feathersjs) socketio client if enabled
-    if config.feathers_sio_cfg is not None and output_protocol == Protocol.WS:
+        # load (feathersjs) socketio client if enabled
+        if config.feathers_sio_cfg is not None and output_protocol == Protocol.WS:
 
-        feathers_sio_client = SIOClient(output_uri=args.output_uri, **vars(config.feathers_sio_cfg))
-        feathers_sio_client.start()
+            feathers_sio_client = SIOClient(output_uri=args.output_uri, **vars(config.feathers_sio_cfg))
+            feathers_sio_client.start()
+    except:
+        logger.error(str(exc_info()[0]) + " " + str(exc_info()[1]))
 
     # load labels if given
     if args.labels is not None:
@@ -188,6 +196,7 @@ def main():
                         break
 
                 if args.output_uri is not None:
+                    #print("writing frame...")
                     logger.debug("writing frame...")
                     stream.write(frame)
                     #try:
@@ -197,6 +206,9 @@ def main():
                     #    pass
                                       
     finally:
+        #print("Loop is broken!")
+        logger.debug("Loop is broken!")
+
         # clean up resources
         if txt is not None:
             txt.close()

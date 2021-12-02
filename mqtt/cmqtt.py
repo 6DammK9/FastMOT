@@ -8,7 +8,6 @@ import signal
 import os
 import socket
 import netifaces
-import threading
 #import client_config as config
 from functools import reduce
 import random
