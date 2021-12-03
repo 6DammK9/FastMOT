@@ -8,6 +8,8 @@ import time
 import os
 import logging
 from urllib.parse import urlparse
+from fastmot.utils import NpEncoder
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,7 @@ class SIOClient(threading.Thread):
 
     def __init__(self,   
         output_uri = None,
+        device_id = "unknown",
         FEATHERSJS_SOCKET = {}
     ):
         # Create as a new thread
@@ -27,6 +30,7 @@ class SIOClient(threading.Thread):
         self.socketio_path = socketio_path
         self.transports = transports
         self.primary_chanel = primary_chanel
+        self.device_id = device_id
 
         #self.cond = threading.Condition()
 
@@ -67,7 +71,7 @@ class SIOClient(threading.Thread):
         #Note: Upon timeout, this client suddenly BLOCK IO!
         #print("url", self.io_server_url)
         self.sio.connect(url=self.io_server_url, socketio_path=self.socketio_path, 
-            transports=self.transports, request_timeout=30, wait_timeout=30
+            transports=self.transports, wait_timeout=30
         )
 
         # engineio.__version__ = '4.2.1dev'
@@ -75,6 +79,15 @@ class SIOClient(threading.Thread):
         #print('my sid is', self.sio.sid)
         logger.info("Connected as SID: ", self.sio.sid)
         #self.resetTimer('start')
+
+        #Send message immediately?
+        if False:
+            test_payload = {
+                'deviceId': 'fastmot',
+                'foo': 'bar'
+            }
+            print("Sending test payload...")
+            self.sio.emit("create", (self.primary_chanel, test_payload))
 
     def stop(self):
         self.sio.disconnect()
@@ -94,11 +107,15 @@ class SIOClient(threading.Thread):
         #    'foo': 'bar'
         #}
 
-        #TODO
         #print('put_msg: ', self.primary_chanel)
         #print(sensor_data)
+        #sensor_data = json.dumps(sensor_data, cls=NpEncoder) #NumpyEncoder
         #https://socket.io/docs/v4/namespaces/
-        self.sio.emit("create", (self.primary_chanel, sensor_data))
+        payload = {
+            'deviceId': self.device_id, 
+            'sensor_data': sensor_data
+        }
+        self.sio.emit("create", (self.primary_chanel, payload))
     
     def on_trackevt(self, sensor_data):
         #logger.info('on_trackevt()')

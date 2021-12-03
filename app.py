@@ -11,7 +11,7 @@ from numpyencoder import NumpyEncoder
 
 import fastmot
 import fastmot.models
-from fastmot.utils import ConfigDecoder, Profiler
+from fastmot.utils import ConfigDecoder, Profiler, NpEncoder
 from fastmot.videoio import VideoIO, Protocol
 
 from logging.handlers import RotatingFileHandler
@@ -35,7 +35,7 @@ LOG_PATH = 'site/fastmot.log'
 def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
     #logger.info("on_trackevt()")
     
-    json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder)
+    json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder) #NumpyEncoder, NpEncoder
 
     #Send with event 'found' only
     if 'found' not in trk_evt['track']:
@@ -48,7 +48,7 @@ def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
     logger.info("img: %d" % len(img))
     #json.dumps(
     json_fulltrk_evt = {
-        'track': trk_evt['track'],
+        'track': json.dumps(trk_evt['track'], cls=NumpyEncoder),
         'img': img
     }
     if mqtt_client is not None and callable(mqtt_client.on_trackevt):

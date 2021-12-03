@@ -151,8 +151,10 @@
     },
     "feathers_sio_cfg": {
         "FEATHERSJS_SOCKET": {
+            "request_timeout": 30,
             "logger": false,
             "engineio_logger": false
-        }
+        },
+        "device_id": "fastmot"
     }
 }
