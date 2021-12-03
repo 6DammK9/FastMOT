@@ -10,6 +10,7 @@ import logging
 from urllib.parse import urlparse
 from fastmot.utils import NpEncoder
 import json
+from sys import stdout, stderr, exc_info
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,11 @@ class SIOClient(threading.Thread):
             'deviceId': self.device_id, 
             'sensor_data': sensor_data
         }
-        self.sio.emit("create", (self.primary_chanel, payload))
+        try:
+            if self.sio.connected:
+                self.sio.emit("create", (self.primary_chanel, payload))
+        except:
+            logger.error(str(exc_info()[0]) + " " + str(exc_info()[1]))
     
     def on_trackevt(self, sensor_data):
         #logger.info('on_trackevt()')

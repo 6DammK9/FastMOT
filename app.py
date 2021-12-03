@@ -207,7 +207,7 @@ def main():
                                       
     finally:
         #print("Loop is broken!")
-        logger.debug("Loop is broken!")
+        logger.info("Sesson end! Closing streams...")
 
         # clean up resources
         if txt is not None:
