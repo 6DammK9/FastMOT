@@ -38,7 +38,13 @@ def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
     json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder) #NumpyEncoder, NpEncoder
 
     #Send with event 'found' only
-    if 'found' not in trk_evt['track']:
+
+    is_detection = False
+    for k in ['found', 'reidentified']:
+        if k in trk_evt['track']:
+            is_detection = True
+
+    if not is_detection:
         #logger.debug(json_object)
         return
 
