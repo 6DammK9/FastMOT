@@ -34,6 +34,9 @@ LOG_PATH = 'site/fastmot.log'
 
 def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
     #logger.info("on_trackevt()")
+
+    if trk_evt['track'] is None:
+        return
     
     json_object = json.dumps(trk_evt['track'], cls=NumpyEncoder) #NumpyEncoder, NpEncoder
 
@@ -58,15 +61,10 @@ def on_trackevt(trk_evt, logger, mqtt_client=None, feathers_sio_client=None):
         'img': img
     }
     if mqtt_client is not None and callable(mqtt_client.on_trackevt):
-        #print("mqtt")
         mqtt_client.on_trackevt(json_object)
-        #print(json_object)
     elif feathers_sio_client is not None and callable(feathers_sio_client.on_trackevt):
-        #print("sio")
-        #print(json_object)
         feathers_sio_client.on_trackevt(json_fulltrk_evt)
     else: 
-        print("none")
         logger.debug(json_object)
 
 #frame: np.ndarray from cv2
@@ -78,7 +76,7 @@ def frame_to_img_b64(frame):
     buff = BytesIO()
     pil_img.save(buff, format='JPEG')
     new_image_string = base64.b64encode(buff.getvalue()).decode("utf-8")
-    #print("saved: ", len(new_image_string))
+    #logger.debug("saved: %d" % len(new_image_string))
     return new_image_string
 
 def main():
@@ -184,6 +182,7 @@ def main():
             while not args.show or cv2.getWindowProperty('Video', 0) >= 0:
                 frame = stream.read()
                 if frame is None:
+                    logger.info("No more frame received!")
                     break
 
                 if args.mot:
@@ -212,7 +211,6 @@ def main():
                     #    pass
                                       
     finally:
-        #print("Loop is broken!")
         logger.info("Sesson end! Closing streams...")
 
         # clean up resources

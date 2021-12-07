@@ -104,6 +104,9 @@ class MOT:
         self.frame_count = 0
 
         self.latest_drawn = None
+        self.capture_screen = False
+        self.last_tracked_evt = None
+        self.current_trk_id = 0
 
     def visible_tracks(self):
         """Retrieve visible tracks from the tracker
@@ -163,21 +166,19 @@ class MOT:
 
             with Profiler('assoc'):
                 self.tracker.update(self.frame_count, detections, embeddings)
+                self.capture_screen = True
         else:
             with Profiler('track'):
                 self.tracker.track(frame)
 
         if self.draw:
             self._draw(frame, detections)
+
         self.frame_count += 1
-        self.latest_drawn = frame
+        #self.latest_drawn = frame
 
     def on_tracker_evt(self, evt_payload):
-        mot_payload = {
-            'track': evt_payload,
-            'frame': self.latest_drawn
-        }
-        self.on_trackevt(mot_payload)
+        self.last_tracked_evt = evt_payload
 
     @staticmethod
     def print_timing_info():
@@ -195,3 +196,29 @@ class MOT:
                                self.tracker.flow.prev_bg_keypoints, self.tracker.flow.bg_keypoints)
         cv2.putText(frame, f'visible: {len(visible_tracks)}', (30, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 2, cv2.LINE_AA)
+        if self.capture_screen:
+            self.latest_drawn = frame
+            mot_payload = {
+                'track': self.last_tracked_evt,
+                'frame': self.latest_drawn
+            }
+
+            found_trk_id = -1
+            try:
+                if self.last_tracked_evt:
+                    for k in ['found', 'reidentified']:
+                        if k in self.last_tracked_evt:
+                            found_trk_id = self.last_tracked_evt[k]['trk_id']         
+            except:
+                found_trk_id = -1                           
+           
+            if (found_trk_id > 0) and (self.current_trk_id != found_trk_id):          
+                logger.debug("Pass: %d, %d" % (self.current_trk_id, found_trk_id))
+                self.on_trackevt(mot_payload)
+                self.current_trk_id = found_trk_id
+            else:
+                logger.debug("Blocked: %d, %d" % (self.current_trk_id, found_trk_id))
+
+            self.capture_screen = False
+        else:
+            logger.debug("Blocked: Not capture_screen")
